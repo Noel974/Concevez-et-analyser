@@ -1,3 +1,4 @@
 .env
 # Ignorer tous les CSV dans data
 data/*.csv
+mongo
