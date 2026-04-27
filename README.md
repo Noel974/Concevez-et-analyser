@@ -24,7 +24,7 @@ mkdir mongo/arb
 ```
 Chaque dossier représente un serveur MongoDB
 
-#### *Important* Verifier si MongoDb tourne
+*Important* Verifier si MongoDb tourne
 MongoDB installé via *MSI* démarre souvent automatiquement et bloque le port 27017 empêchant le ReplicaSet de fonctionner 
 desactiver entant que admin
 *Vérifier le service*
@@ -44,10 +44,19 @@ Set-Service MongoDB -StartupType Disabled
 netstat -ano | findstr 27017
 ```
 *Réactivé le service*
+```bash
 Set-Service MongoDB -StartupType Automatic
+
+```
+```bash
 Start-Service MongoDB
+
+```
+```bash
 Get-Service MongoDB
-##### Lancement ReplicaSet
+
+```
+###### Lancement ReplicaSet
 Ouvert trois cmd cote a cote 
 *Fenêtre 1 — PRIMARY (port 27017)*
 ```bash
@@ -62,7 +71,7 @@ mongod --replSet rs0 --port 27018 --dbpath mongo/rs2 --bind_ip localhost
 mongod --replSet rs0 --port 27019 --dbpath mongo/arb --bind_ip localhost
 ```
 de laisser les trois cmd ouvert 
-##### Initialiser le ReplicaSet
+###### Initialiser le ReplicaSet
 Ouvrir un qautrieme fenetre 
 ```bash
 mongosh --port 27017
@@ -79,7 +88,7 @@ rs.initiate({
 })
 ```
 Si message "ok" : 1 tous fonctionne bien 
-##### Vérifier le statut du ReplicaSet
+###### Vérifier le statut du ReplicaSet
 ```bash
 rs.status()
 ```
@@ -89,7 +98,7 @@ on doit voir
     -SECONDARY = 27018
     -ARBITER = 27019
 
-##### Tester la réplication
+###### Tester la réplication
 ouvert deux terminal un pour 27017 et l'autre pour 27018
 ```bash
 mongosh --port 27017
@@ -106,6 +115,8 @@ mongosh --port 27018
 ```
 on doit voir se code 
 ```bash
+use Jeuxolympique2024
+
 db.getMongo().setReadPref("secondary")
 db.test.find()
 ```
@@ -118,46 +129,123 @@ Si tu vois l’erreur “This node was not started with replication enabled”, 
 Toujours vérifier que le port 27017 est libre avant de lancer le PRIMARY.
 __
 #### Sharding 
+##### Creation de l’arborescence
 ```bash
+mkdir mongo/config
+mkdir mongo/shard1
+mkdir mongo/shard2
+mkdir mongo/mongos
+```
+###### Lancement des serveur et connexion 
+Pour tous les serveur et connextion s'assuré que chacun se trouve dans un terminal et de laisser le terminal tournée pour le bon déroulement 
+
+*Important* Comme pour les replicaset s'assurer que les serveur son libres dans se cas stopper les pour le déroulement 
+ 
+ Voci les commande pour lancer les serveur et la connexion a se serveur 
+```bash
+mongod --configsvr --replSet configReplSet --port 27019 --dbpath ./config
 ```
 ```bash
+mongosh --port 27019
+```
+shard1
+```bash
+mongod --shardsvr --replSet shardParis --port 27018 --dbpath ./shard1
 ```
 ```bash
+mongosh --port 27018
+```
+shard2
+```bash
+mongod --shardsvr --replSet shardLyon --port 27020 --dbpath ./shard2
 ```
 ```bash
+mongosh --port 27020
+```
+la router mongos
+```bash
+mongos --configdb configReplSet/localhost:27019 --port 27017
 ```
 ```bash
+mongosh --port 27017
 ```
+###### Initiate
+Une fois les serveur lancer et que tous est connecter de initialiser la partie config et les shard 
+Config
 ```bash
+rs.initiate({
+  _id: "configReplSet",
+  configsvr: true,
+  members: [
+    { _id: 0, host: "localhost:27019" }
+  ]
+})
 ```
+une fois initiate effectué de lancer la comme 
+```bash 
+rs.status()
+```
+pour faire la verification 
+shard1
 ```bash
+rs.initiate({
+  _id: "shardParis",
+  members: [
+    { _id: 0, host: "localhost:27018" }
+  ]
+})
 ```
+shard2
 ```bash
+rs.initiate({
+  _id: "shardLyon",
+  members: [
+    { _id: 0, host: "localhost:27020" }
+  ]
+})
 ```
+###### Ajout Shards au cluster
+pour la partie routeur  une fois connecter on ajouter les  shards au clusters
 ```bash
+sh.addShard("shardParis/localhost:27018")
+sh.addShard("shardLyon/localhost:27020")
 ```
+et de verifier avec la commande 
 ```bash
+sh.status()
 ```
+une fois les shards ajouter au cluster on dois les activés sur la base ("JeuxOlympique2024") 
 ```bash
+sh.enableSharding("JeuxOlympique2024")
 ```
+
 ```bash
+sh.shardCollection("maBase.clients", { ville: 1 })
 ```
+et tester pour voir si tous fonctionne bien 
 ```bash
+use JeuxOlympique2024
+
+db.clients.insertMany([
+  { nom: "Durand", ville: "Paris" },
+  { nom: "Martin", ville: "Paris" },
+  { nom: "Dupont", ville: "Lyon" },
+  { nom: "Morel", ville: "Lyon" }
+])
 ```
+Vérifier la répartition des chunks
 ```bash
+sh.status()
 ```
+Vérifier que les documents sont bien routés
 ```bash
+db.clients.find({ ville: "Paris" }).explain("executionStats")
 ```
+la même chose pour la ville Lyon
 ```bash
+db.clients.find({ ville: "Lyon" }).explain("executionStats")
 ```
-```bash
-```
-```bash
-```
-```bash
-```
-```bash
-```
+
 ```bash
 ```
 ```bash
