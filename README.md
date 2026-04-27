@@ -10,6 +10,11 @@ venv\Scripts\activate
 Utile si tu veux partager ton projet ou le réinstaller ailleurs 
 puis installer pip install -r requirements.txt"# Concevez-analyser" 
 
+Exécuter un script dans le dossier dossier taper la commande suivante 
+```bash
+python -m Script.le nom du fichier
+```
+
 #### Preapre RéplicaSet
 ##### Création Dossier  
 ```bash
@@ -21,7 +26,7 @@ Chaque dossier représente un serveur MongoDB
 
 #### *Important* Verifier si MongoDb tourne
 MongoDB installé via *MSI* démarre souvent automatiquement et bloque le port 27017 empêchant le ReplicaSet de fonctionner 
-
+desactiver entant que admin
 *Vérifier le service*
 ```bash
 Get-Service | Where-Object {$_.Name -like "*Mongo*"}
@@ -38,6 +43,10 @@ Set-Service MongoDB -StartupType Disabled
 ```bash
 netstat -ano | findstr 27017
 ```
+*Réactivé le service*
+Set-Service MongoDB -StartupType Automatic
+Start-Service MongoDB
+Get-Service MongoDB
 ##### Lancement ReplicaSet
 Ouvert trois cmd cote a cote 
 *Fenêtre 1 — PRIMARY (port 27017)*
@@ -90,14 +99,14 @@ on doit voir dans le code "rs0 [direct: primary] test>" on peut alors taper la c
 ```bash
 use Jeuxolympique2024
 db.test.insertOne({ ville: "Paris", ok: true })
-``` 
+``` ```
 et dans le second 
 ```bash
 mongosh --port 27018
 ```
 on doit voir se code 
 ```bash
-rs.slaveOk()
+db.getMongo().setReadPref("secondary")
 db.test.find()
 ```
 __
@@ -108,6 +117,7 @@ Si tu vois l’erreur “This node was not started with replication enabled”, 
 
 Toujours vérifier que le port 27017 est libre avant de lancer le PRIMARY.
 __
+#### Sharding 
 ```bash
 ```
 ```bash
